@@ -4,11 +4,16 @@ import { useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import { InlineMath, BlockMath } from "react-katex";
+import "katex/dist/katex.min.css";
 
 export default function Home() {
   const [format, setFormat] = useState("plain");
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
+  const [highlight, setHighlight] = useState(false);
   const [expirationValue, setExpirationValue] = useState(1);
   const [expirationUnit, setExpirationUnit] = useState("minutes");
 
@@ -21,7 +26,6 @@ export default function Home() {
   };
 
   const handleSubmit = async () => {
-    // Calculate the expiration date
     const now = new Date();
     let expirationDate;
     switch (expirationUnit) {
@@ -54,10 +58,8 @@ export default function Home() {
         expirationDate = now;
     }
 
-    // Format expirationDate to ISO 8601 with timezone offset
     const expirationISO = expirationDate.toISOString();
 
-    // Create JSON object with data
     const data = {
       title: title,
       content: text,
@@ -86,11 +88,32 @@ export default function Home() {
   };
 
   const renderFormattedText = () => {
+    if (!highlight) {
+      return (
+        <textarea
+          className={`w-full h-full p-4 text-base bg-white text-black border border-gray-300 rounded-md resize-none`}
+          value={text}
+          onChange={handleTextChange}
+        />
+      );
+    }
+
+    const renderers = {
+      // Customize rendering for math components
+      inlineMath: ({ value }) => <InlineMath math={value} />,
+      math: ({ value }) => <BlockMath math={value} />,
+    };
+
     switch (format) {
       case "markdown":
         return (
-          <div className="prose max-w-none">
-            <ReactMarkdown>{text}</ReactMarkdown>
+          <div className="prose max-w-none p-4 border border-gray-300 rounded-md bg-white text-black h-full overflow-auto">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              components={renderers}
+            >
+              {text}
+            </ReactMarkdown>
           </div>
         );
       case "python":
@@ -98,26 +121,36 @@ export default function Home() {
       case "javascript":
       case "go":
         return (
-          <SyntaxHighlighter language={format} style={vscDarkPlus}>
+          <SyntaxHighlighter
+            language={format}
+            style={vscDarkPlus}
+            className="h-full overflow-auto p-4 bg-black text-white border border-gray-300 rounded-md"
+          >
             {text}
           </SyntaxHighlighter>
         );
       default:
-        return <pre>{text}</pre>;
+        return (
+          <textarea
+            className={`w-full h-full p-4 text-base bg-white text-black border border-gray-300 rounded-md resize-none`}
+            value={text}
+            onChange={handleTextChange}
+          />
+        );
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <div className="relative w-4/5">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex justify-between w-4/5 mb-4">
         <input
-          className="w-full p-4 text-base text-black border border-gray-300 rounded-md"
+          className="w-full p-4 text-base text-black border border-gray-300 rounded-md mr-2"
           placeholder="Title"
           value={title}
           onChange={handleTitleChange}
         />
         <select
-          className="absolute top-0 left-0 p-2 text-base bg-white border border-gray-300 rounded-md"
+          className="p-2 text-base text-black bg-white border border-gray-300 rounded-md"
           value={format}
           onChange={(e) => setFormat(e.target.value)}
         >
@@ -129,21 +162,56 @@ export default function Home() {
           <option value="go">Go</option>
         </select>
       </div>
-      <textarea
-        className="w-4/5 h-96 p-4 mt-4 text-base text-black border border-gray-300 rounded-md"
-        placeholder="Enter your text here..."
-        value={text}
-        onChange={handleTextChange}
-      />
+      <div className="flex justify-end w-4/5 mb-4 text-black">
+        <label htmlFor="highlight-toggle" className="mr-2">
+          Highlight
+        </label>
+        <button
+          id="highlight-toggle"
+          onClick={() => setHighlight(!highlight)}
+          className={`p-2 border rounded ${highlight ? "bg-blue-500 text-white" : "bg-gray-200 text-black"}`}
+        >
+          {highlight ? "On" : "Off"}
+        </button>
+      </div>
+      <div className="flex w-4/5 h-96">
+        <textarea
+          className="w-1/2 h-full p-4 text-base text-black border border-gray-300 rounded-md resize-none"
+          placeholder="Enter your text here..."
+          value={text}
+          onChange={handleTextChange}
+        />
+        <div className="w-1/2 h-full p-4 ml-2 bg-white text-black border border-gray-300 rounded-md resize-none overflow-auto">
+          {renderFormattedText()}
+        </div>
+      </div>
+      <div className="flex items-center mt-4 text-black">
+        <input
+          type="number"
+          className="w-20 p-2 text-base border border-gray-300 rounded-md"
+          value={expirationValue}
+          onChange={(e) => setExpirationValue(e.target.value)}
+        />
+        <select
+          className="ml-2 p-2 text-base bg-white border border-gray-300 rounded-md"
+          value={expirationUnit}
+          onChange={(e) => setExpirationUnit(e.target.value)}
+        >
+          <option value="seconds">Seconds</option>
+          <option value="minutes">Minutes</option>
+          <option value="hours">Hours</option>
+          <option value="days">Days</option>
+          <option value="weeks">Weeks</option>
+          <option value="months">Months</option>
+          <option value="years">Years</option>
+        </select>
+      </div>
       <button
-        className="px-6 py-2 mt-4 text-base text-white bg-blue-500 rounded-md"
+        className="px-6 py-2 mt-4 text-base text-white bg-blue-500 rounded-md hover:bg-blue-700"
         onClick={handleSubmit}
       >
         Submit
       </button>
-      <div className="w-4/5 p-4 mt-4 text-base text-black border border-gray-300 rounded-md">
-        {renderFormattedText()}
-      </div>
     </div>
   );
 }
